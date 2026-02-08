@@ -1,2 +1,2 @@
 # macaque-cortical-organization
-Code accompanying “Toward a Unified Model of the Macaque Cortex with Multi-Scale Spatiotemporal-Neurochemical Integration.”A compendium of the MATLAB functions I used in my analysis pipeline for dealing with resting-state fMRI data in macaques
+A compendium of the MATLAB functions I used in my analysis pipeline for integrating functional connectivity gradients, intrinsic neural timescales, and neurotransmitter receptor distributions in resting-state macaque fMRI data. Includes atlas transformations, gradient mapping, timescale segmentation, and cross-scale chemotemporal analyses used in my associated manuscript.

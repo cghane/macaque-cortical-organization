@@ -1,5 +1,6 @@
+% Loads each run’s ROI time series, chops it into 30/60/90s chunks, computes per-voxel intrinsic timescale (sum of positive ACF) for each chunk
+% Then, averages across chunks/runs, stores results, then plots how the average timescale changes with window length.
 % Modified Code to Compute INTs for 30, 60, and 90-Second Windows
-% Initialize Variables
 int = []; % Intrinsic neural timescales
 data_monks = [];
 
@@ -109,7 +110,7 @@ for i = 1:length(monkeys)
     end
 end
 
-% Plot Results with Error Bars
+% Plot Results w/ Error Bars
 figure;
 colors = ['r', 'g', 'b'];
 hold on;

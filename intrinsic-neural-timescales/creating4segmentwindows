@@ -1,4 +1,4 @@
-for idx = 1:2:55
+% For each monkey and segment, compute the row-wise mean across and store in a separate output file
     % Access the 'int' matrix for current data_monks{1, idx}
     int_matrix = data_monks{1, idx}.int; % n x 4 x 5 matrix
     name = data_monks{1, idx}.monkey; % Monkey name as a string

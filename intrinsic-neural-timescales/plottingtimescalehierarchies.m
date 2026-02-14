@@ -1,10 +1,7 @@
-%% plotting_timescales_hierarchical_norm01.m
+% Generates hierarchical per-segment timescale plots for canonical brain regions
 % Hierarchical representation (one plot per segment, regions on x)
-% Timescales are MIN–MAX normalized to [0,1] within each SEGMENT across regions.
+% Timescales are min–max normalized to [0,1] within each segment across regions.
 
-%% =========================
-%  Groups
-%  =========================
 group1 = {'S1', 'S2'};
 group2 = {'MT', 'LIP', 'OFC', 'LPFC', 'ACC'};
 group3 = {'PMd', 'latOFC', 'dlPFC'};
@@ -14,7 +11,6 @@ colors1 = {[0.5, 0, 0.5], [0.7, 0, 0.7]};  % Purples for S1-S2
 colors2 = {[0, 0.7, 0], [0, 0.6, 0.2], [0, 0.5, 0.4], [0, 0.4, 0.6], [0, 0.3, 0.8]};  % Greens for MT-ACC
 colors3 = {[0.8, 0.4, 0], [0.8, 0.2, 0.2], [0.8, 0, 0.4]};  % Oranges/Reds for PMd group
 
-% Robust output directory (handles name collisions & permissions)
 outdir = ensure_outdir('output');
 
 % Global visual style
@@ -55,7 +51,7 @@ function plot_group_norm01(group, colors, group_name, outdir)
         end
     end
 
-    % -------- FIXED: min–max normalize within each SEGMENT across regions ---------
+    % -------- min–max normalize within each SEGMENT across regions ---------
     norm01 = nan(size(raw));
     mn = min(raw, [], 1, 'omitnan');   % per-segment min across regions
     mx = max(raw, [], 1, 'omitnan');   % per-segment max across regions

@@ -1,3 +1,4 @@
+% Iterates over monkeys and runs to compute timescales from processed fMRI data
 % Initialize variables
 data_monks = [];
 
@@ -96,6 +97,6 @@ for i = 1:length(monkeys)
         timescales.int = int;
         
         data_monks{n} = timescales;
-        n = n + 1; % Increment counter
+        n = n + 1;
     end
 end

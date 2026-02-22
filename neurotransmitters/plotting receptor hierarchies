@@ -1,0 +1,251 @@
+%% computes the mean value of each of 14 receptor maps across 3 canonical axes, and for each group saves a clean multi-line “receptor profile across regions” plot.
+% Hierarchical representation (regions on x, multiple receptor lines)
+% Raw values (no normalization). Clean "Nature-style" aesthetics + robust export.
+
+%% =========================
+%  Group definitions
+%  =========================
+group1 = {'S1', 'S2'};
+group2 = {'MT', 'LIP', 'OFC', 'LPFC', 'ACC'};
+group3 = {'PMd', 'latOFC', 'dlPFC'};
+
+% Define neurotransmitter receptor names (columns 4-17 in RM_dump_nan.1D)
+receptor_names = {'AMPA_Glutamate', 'Kainate_Glutamate', 'NMDA_Glutamate', ...
+                  'GABA_A', 'GABA_A_BZ', 'GABA_B', ...
+                  'M1_Acetylcholine', 'M2_Acetylcholine', 'M3_Acetylcholine', ...
+                  'HT1A_Serotonin', 'HT2A_Serotonin', ...
+                  'Alpha1_Noradrenaline', 'Alpha2_Noradrenaline', ...
+                  'D1_Dopamine'};
+
+%% =========================
+%  Paths & output directory
+%  =========================
+prefix = '/mnt/scratch/NHP4CYRUS/';
+atlas_prefix = '/mnt/scratch/NHP4CYRUS/1dfiles/';
+output_dir = ensure_outdir(fullfile(prefix, 'output/neurotransmitters'));
+
+%% =========================
+%  ROI definitions (labels & atlases)
+%  =========================
+rois = struct();
+rois.dlPFC = struct('label', 54, 'atlas', [atlas_prefix 'C3_whole_brain.1D']);
+rois.latOFC = struct('label', 25, 'atlas', [atlas_prefix 'C3_whole_brain.1D']);
+rois.PMd   = struct('label', 81, 'atlas', [atlas_prefix 'C5_whole_brain.1D']);
+rois.ACC   = struct('label', 3,  'atlas', [atlas_prefix 'C3_whole_brain.1D']);
+rois.OFC   = struct('label', 16, 'atlas', [atlas_prefix 'C2_whole_brain.1D']);
+rois.LPFC  = struct('label', 50, 'atlas', [atlas_prefix 'C2_whole_brain.1D']);
+rois.LIP   = struct('label', 113,'atlas', [atlas_prefix 'C4_whole_brain.1D']);
+rois.MT    = struct('label', 232,'atlas', [atlas_prefix 'C4_whole_brain.1D']);
+rois.S2    = struct('label', 95, 'atlas', [atlas_prefix 'C4_whole_brain.1D']);
+rois.S1    = struct('label', 92, 'atlas', [atlas_prefix 'C3_whole_brain.1D']);
+
+%% =========================
+%  Load neurotransmitter data
+%  =========================
+rm_file = fullfile(prefix, 'RM_dump_nan.1D');
+if ~isfile(rm_file)
+    error('File not found: %s', rm_file);
+end
+neuro_data = load(rm_file);   % Expecting 17 columns: XYZ(1:3) + receptors(4:17)
+if size(neuro_data, 2) ~= 17
+    error('RM_dump_nan.1D should have 17 columns (got %d).', size(neuro_data, 2));
+end
+
+%% =========================
+%  Global visual style (Nature-like)
+%  =========================
+set(0,'DefaultFigureColor','w', ...
+      'DefaultAxesFontName','Arial', ...
+      'DefaultAxesFontSize',10, ...
+      'DefaultAxesLineWidth',0.75, ...
+      'DefaultLineLineWidth',1.25);
+
+%% =========================
+%  Plot per group (hierarchical style)
+%  =========================
+plot_group_neuro(group1, 'S1_S2', neuro_data, receptor_names, rois, output_dir);
+plot_group_neuro(group2, 'MT_ACC', neuro_data, receptor_names, rois, output_dir);
+plot_group_neuro(group3, 'PMd_dlPFC', neuro_data, receptor_names, rois, output_dir);
+
+fprintf('Plots saved to: %s\n', output_dir);
+
+%% =======================================================================
+%                               FUNCTIONS
+% ========================================================================
+
+function plot_group_neuro(group, group_name, neuro_data, receptor_names, rois, output_dir)
+% Same hierarchical layout you had:
+%  - x-axis = regions in the group
+%  - multiple lines = receptors (14 lines)
+%  - polished style + consistent y-limits per group
+%
+% Assumes atlas vectors index into rows of neuro_data (1-based).
+    nReg = numel(group);
+    nRec = numel(receptor_names);
+
+    % ---- compute mean per region x receptor ----
+    data_values = nan(nReg, nRec);
+    for r = 1:nReg
+        region = group{r};
+        if ~isfield(rois, region)
+            warning('Region %s not in ROI struct. Skipping.', region);
+            continue;
+        end
+
+        atlas_file = rois.(region).atlas;
+        if ~isfile(atlas_file)
+            warning('Atlas file missing for %s: %s. Skipping.', region, atlas_file);
+            continue;
+        end
+
+        % Read atlas indices (tolerate 1D, row/col vectors)
+        atlas_raw = importdata(atlas_file);
+        if isstruct(atlas_raw) && isfield(atlas_raw,'data')
+            atlas_raw = atlas_raw.data;
+        end
+        atlas_raw = atlas_raw(:); % force column
+        label = rois.(region).label;
+
+        crd_acc = find(atlas_raw == label);
+        if isempty(crd_acc)
+            warning('No voxels for %s (label %d) in %s.', region, label, atlas_file);
+            continue;
+        end
+        if max(crd_acc) > size(neuro_data,1)
+            warning('Indices for %s exceed neuro_data rows (%d). Max idx=%d. Skipping.', ...
+                region, size(neuro_data,1), max(crd_acc));
+            continue;
+        end
+
+        vox = neuro_data(crd_acc, :); % [nVox x 17]
+
+        for q = 1:nRec
+            col = q + 3; % receptors are columns 4..17
+            data_values(r, q) = mean(vox(:, col), 'omitnan');
+        end
+    end
+
+    % ---- consistent y-limits across receptors within this group ----
+    finiteVals = data_values(isfinite(data_values));
+    if isempty(finiteVals)
+        ylims = [0 1];
+    else
+        pad = 0.05 * range(finiteVals);
+        if pad == 0, pad = max(1, 0.1 * max(abs(finiteVals))); end
+        ylims = [min(finiteVals)-pad, max(finiteVals)+pad];
+    end
+
+    % ---- build figure (hierarchical style) ----
+    f = figure('Position', [100, 100, 980, 620], 'Renderer', 'painters'); hold on;
+
+    % Use a pleasant, distinct color order for many lines
+    set(gca, 'ColorOrder', nice_colors(nRec), 'NextPlot', 'replacechildren');
+
+    % Plot each receptor as its own line with small markers (unchanged style)
+    for q = 1:nRec
+        plot(1:nReg, data_values(:, q), '-o', ...
+            'LineWidth', 1.0, 'MarkerSize', 4, ...
+            'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'k', ...
+            'DisplayName', receptor_names{q});
+        hold on;
+    end
+
+    % Axes, labels, grid
+    xlim([0.5, nReg + 0.5]); ylim(ylims);
+    xticks(1:nReg); xticklabels(group); xtickangle(25);
+    ylabel('Average neurotransmitter value'); xlabel('Region');
+    grid on;
+    ax = gca;
+    ax.YGrid = 'on'; ax.XGrid = 'off';
+    ax.GridAlpha = 0.15; ax.MinorGridAlpha = 0.07;
+    set(ax, 'Box','off', 'TickDir','out', 'TickLength',[0.010 0.010]);
+
+    % Title & legend (outside right, stacked as before)
+    title(sprintf('%s — Neurotransmitter Profiles', strrep(group_name,'_','\_')), 'FontWeight','bold');
+    lgd = legend('Location','eastoutside', 'NumColumns', 1); %#ok<LLEG>
+    lgd.Box = 'off';
+
+    % Save (PNG/PDF/FIG)
+    base = fullfile(output_dir, sprintf('%s_neuro_group', group_name));
+    export_block(f, base);
+    close(f);
+end
+
+function outdir = ensure_outdir(baseName)
+% Make sure we have a real, writable directory (handles collisions with files named the same)
+    try
+        if exist(baseName, 'file') && ~exist(baseName, 'dir')
+            warning('"%s" exists as a file. Using "%s_figs" instead.', baseName, [baseName '_figs']);
+            baseName = [baseName '_figs'];
+        end
+        if ~exist(baseName, 'dir'), mkdir(baseName); end
+
+        % Test write
+        testFile = fullfile(baseName, sprintf('._writetest_%s.txt', char(java.util.UUID.randomUUID)));
+        fid = fopen(testFile, 'w'); 
+        if fid == -1, error('Cannot write to "%s"', baseName); end
+        fclose(fid); delete(testFile);
+    catch
+        % Fallback to local folder if scratch dir not writable
+        baseName = fullfile(pwd, 'output', 'neurotransmitters');
+        if ~exist(baseName,'dir'), mkdir(baseName); end
+    end
+    outdir = baseName;
+end
+
+function export_block(figHandle, basepath)
+% Robust export: PNG (300dpi), PDF (vector), FIG; fallbacks included.
+    pngPath = [basepath '.png'];
+    pdfPath = [basepath '.pdf'];
+    figPath = [basepath '.fig'];
+
+    % PNG
+    try
+        exportgraphics(figHandle, pngPath, 'Resolution', 300);
+    catch
+        try
+            print(figHandle, pngPath, '-dpng', '-r300');
+        catch ME
+            warning('PNG export failed: %s', ME.message);
+        end
+    end
+
+    % PDF (vector when possible)
+    try
+        exportgraphics(figHandle, pdfPath, 'ContentType', 'vector');
+    catch
+        try
+            print(figHandle, pdfPath, '-dpdf', '-painters');
+        catch ME
+            warning('PDF export failed: %s', ME.message);
+        end
+    end
+
+    % FIG
+    try
+        savefig(figHandle, figPath);
+    catch ME
+        warning('FIG save failed: %s', ME.message);
+    end
+end
+
+function C = nice_colors(n)
+% Distinct, publication-friendly colors via golden-angle hue sampling.
+% Only change vs your original script; everything else is identical.
+
+    if n <= 0
+        C = zeros(0,3); return;
+    end
+
+    % Golden angle hop around hue circle for maximal spacing
+    phi = 137.508;
+    hues = mod((0:n-1)' * phi, 360) / 360;  % [0,1]
+
+    % Fixed saturation/value to match your original look/contrast
+    S = 0.74;
+    V = 0.86;
+
+    % Build HSV -> RGB
+    C = hsv2rgb([hues, repmat(S, n, 1), repmat(V, n, 1)]);
+    C = max(0, min(1, C)); % clamp
+end
